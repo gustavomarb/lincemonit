@@ -55,6 +55,7 @@ object CaosConfig extends Configurator[Simulation]:
   val widgets = List(
     "View parsed" -> view(_.toString,Text).moveTo(1),
     "View pretty" -> view[Simulation](s=>Show(s._1),Code("clike")).moveTo(1),
+    "Monitor" -> view(x => "abc", Text),
     "Plot"
       -> Custom[Simulation](divName = "sim-plotly", reload = sim => {
       val js = Plot.plotToJS(
