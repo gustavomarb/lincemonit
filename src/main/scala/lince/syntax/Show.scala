@@ -10,6 +10,8 @@ object Show:
   def apply(p: Program): String = p match
     case Program.Skip => "skip; "
     case Program.Assign(v, e) => s"$v:=${apply(e)}; "
+    case Program.EqDiff(eqs, dur) if eqs.isEmpty =>
+       s"{} for ${apply(dur)}; "
     case Program.EqDiff(eqs, dur) =>
       eqs.map(kv => s"${kv._1}'=${apply(kv._2)}").mkString(", ") + s" for ${apply(dur)}; "
     case Program.Seq(p, q) => apply(p)+"\n"+apply(q)
@@ -60,5 +62,6 @@ object Show:
   }
 
   def simpleSt(st: lince.backend.SmallStep.St): String =
-    s"[${st.t}/${st.lp}/${st.s}] {${st._2.mkString(",")}} ${simpleStatm(st._1)}"
+    s"[${st.t}/${st.lp}] {${st._2.mkString(",")}} ${simpleStatm(st._1)}"
+    //s"[${st.t}/${st.lp}/${st.s}] {${st._2.mkString(",")}} ${simpleStatm(st._1)}"
 

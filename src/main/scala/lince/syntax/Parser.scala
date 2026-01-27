@@ -7,7 +7,7 @@ import lince.syntax.Lince.{Cond, Expr, PlotInfo, Program, Simulation}
 import Program.*
 import caos.frontend.widgets.WidgetInfo.Simulate
 
-import scala.sys.error
+import scala.sys.{env, error}
 import scala.util.Random
 
 object Parser :
@@ -37,9 +37,8 @@ object Parser :
     val loc = LocationMap(str)
     val pos = loc.toLineCol(err.failedAtOffset) match
       case Some((x,y)) =>
-        s"""at ($x,$y):
-           |"${loc.getLine(x).getOrElse("-")}"
-           |${("-" * (y+1))+"^\n"}""".stripMargin
+        s"""at (${x+1},$y):
+           |<pre>${loc.getLine(x).getOrElse("-")}</br>${("-" * y)+"^\n"}</pre>""".stripMargin
       case _ => ""
     s"${pos}expected: ${err.expected.toList.mkString(", ")}\noffsets: ${
       err.failedAtOffset};${err.offsets.toList.mkString(",")}"
@@ -86,15 +85,15 @@ object Parser :
 //    (statement <* sps).rep.map(l => l.tail.fold(l.head)(Program.Seq.apply))
 
   private def block(rec: P[Program]): P[Program] =
-    (char('{') *> sps *> (rec<*sps).rep0  <* char('}')).map(l =>
-      if l.isEmpty then Skip else l.tail.fold(l.head)(Program.Seq.apply)) |
-    rec
+    (char('{') *> sps *> (rec <* sps).rep0 <* char('}')).map(l =>
+      if l.isEmpty then Skip else l.tail.fold(l.head)(Program.Seq.apply))
 
   private def statement: P[Program] = P.recursive((recSt: P[Program]) => {
     skip |
     ite(recSt) |
     whileP(recSt) |
     bern(recSt) |
+    block(recSt) |
     waitP |
     ((varName <* sps) ~ (assign | diffEq | suffix) ).map (x => x._2 (x._1) )
   })
@@ -105,23 +104,23 @@ object Parser :
   def ite(rec:P[Program]): P[Program] =
     ((string("if") *> sps *> cond ~
       (sps *> (string("then") *> sps).? *> // optional "then"
-      block(rec) <* sps)) ~
-    (string("else") *> sps *> block(rec)).?)
+      rec <* sps)) ~
+    (string("else") *> sps *> rec).?)
       .map(x => ITE(x._1._1,x._1._2,x._2.getOrElse(Skip)))
 
   def bern(rec: P[Program]): P[Program] =
     ((string("bernoulli") *> sps *> expr) ~
-      (sps *> block(rec) <* sps) ~
-      block(rec))
+      (sps *> rec <* sps) ~
+      rec)
       .map(x => ITE(Cond.Comp("<",Expr.Func("unif",Nil),x._1._1),
                     x._1._2, x._2))
 
   def whileP(rec:P[Program]): P[Program] =
     (string("while") *> sps *> cond ~
       (sps *> (string("do") *> sps).? *> // optional do
-      block(rec) <* sps))
+        rec <* sps))
       .map(x => While(x._1, x._2)) |
-    (string("repeat") *> sps *> intP ~ (sps *> block(rec) <* sps))
+    (string("repeat") *> sps *> intP ~ (sps *> rec <* sps))
       .map(x => Seq(
         Assign("§c",Expr.Num(0)),
         While(Cond.Comp("<",Expr.Var("§c"),Expr.Num(x._1)),
@@ -136,10 +135,19 @@ object Parser :
   def diffEq: P[String => Program] =
     ((char('\'') *> sps *> char('=') *> sps *> expr <* sps) ~ // 1st expr
       ((char(',')*>sps*>varName) ~ (char('\'') *> sps *> char('=') *> sps *> expr <* sps)).rep0 ~ // (x2'=e2)*
-      (string("for") *> sps *> expr <* (sps <* char(';')))) // for dur;
+      duration)//(string("for") *> sps *> expr <* (sps <* char(';')))) // for dur;
       .map{
-        case ((e1,x2e2s),dur) => x1 => EqDiff(Map(x1->e1)++x2e2s.toMap, dur)
+        case ((e1,x2e2s),appDur) => x1 => appDur(Map(x1->e1)++x2e2s.toMap)
       }
+  // "for" or "until" (syntactic sugar)
+  def duration: P[Map[String,Expr] => Program] =
+    string("for") *> sps *>
+      expr.map(dur => eqs => EqDiff(eqs,dur)) <*
+      (sps <* char(';')) |
+    ((string("until_") *> expr) ~ (sps *> cond <* (sps <* char(';'))))
+      .map((dur,c) => (eqs:Map[String,Expr]) => While(Cond.Not(c), EqDiff(eqs, dur)))
+
+
   def suffix: P[String => Program] =
     string("++") *> sps *> char(';')
       .as(v => Assign(v,Expr.Func("+",List(Expr.Var(v),Expr.Num(1))))) |
@@ -151,14 +159,14 @@ object Parser :
       (char('(') *> recExpr.surroundedBy(sps) <* char(')')) |
       (char('-') ~ recLit).map(x => Expr.Func("*",List(Expr.Num(-1),x._2))) |
       realP.map(Expr.Num.apply) |
-      (string("expn") *> sps *> char('(') *> sps *> recExpr <* (sps <* char(')')))
-        .map(lamb => Expr.Func("/",List(Expr.Func("*",List(Expr.Num(-1),
-                       Expr.Func("ln",List(Expr.Func("unif",Nil))))),lamb))) |
+//      (string("expn") *> sps *> char('(') *> sps *> recExpr <* (sps <* char(')')))
+//        .map(lamb => Expr.Func("/",List(Expr.Func("*",List(Expr.Num(-1),
+//                       Expr.Func("ln",List(Expr.Func("unif",Nil))))),lamb))) |
           // - ln ( unif ) / lambda
       (varName~(sps *> (char('(') *> sps *> recExpr.repSep0(sps~char(',')~sps) <* (sps <* char(')'))).?))
         .map {
           case (v, None) => Expr.Var(v)
-          case (v, Some(args)) => Expr.Func(v, args)
+          case (v, Some(args)) => preProcess(Expr.Func(v, args))
       })
 
     def pow: P[(Expr, Expr) => Expr] =
@@ -174,6 +182,62 @@ object Parser :
 
     listSep(listSep(listSep(literal, pow), mult), sum)
   })
+
+  /** Replaces some functions with its pre-processed equivalent. */
+  def preProcess(f:Expr.Func): Expr = f match {
+    case Expr.Func("expn",List(lamb)) => // - ln ( unif ) / lambda
+      Expr.Func("/",List(Expr.Func("*",List(Expr.Num(-1),
+        Expr.Func("ln",List(Expr.Func("unif",Nil))))),lamb))
+    /* x1 := unif (0 ,1) ;
+       x2 := unif (0 ,1) ;
+       x := sqrt ( -2 * ( ln x1 ) ) * cos (2 * pi * x2 )
+       x := m + s * x
+     */
+    case Expr.Func("normal",List(m,s)) => // - ln ( unif ) / lambda
+      Expr.Func("+", List(
+        m,
+        Expr.Func("*",List(
+          s,
+          Expr.Func("*",List(
+            Expr.Func("sqrt",List(
+              Expr.Func("*",List(
+                Expr.Num(-2.0),
+                Expr.Func("ln",List(
+                  Expr.Func("unif",Nil)
+                ))
+              ))
+            )),
+            Expr.Func("cos",List(
+              Expr.Func("*",List(
+                Expr.Func("*",List(
+                  Expr.Num(2.0),
+                  Expr.Func("pi",Nil)
+                )),
+                Expr.Func("unif",Nil)
+              ))
+            ))
+          ))
+        ))
+      ))
+           // xmin ⋅ (1−unif)^{−1/(alpha−1)}, where alpha>1 and xmin>0
+     // (here using unif instead of 1-unif)
+     case Expr.Func("powerlaw",List(alpha,xmin)) =>
+      Expr.Func("*",List(
+        xmin,
+        Expr.Func("pow",List(
+          Expr.Func("unif",Nil),
+          Expr.Func("/",List(
+            Expr.Num(-1),
+            Expr.Func("-",List(
+              alpha,
+              Expr.Num(1)
+            ))
+          ))
+        ))
+      ))
+    case _ => f
+  }
+
 
   /** Parse a boolean condition */
   def cond: P[Cond] = P.recursive((recCond:P[Cond]) => {
@@ -221,6 +285,14 @@ object Parser :
       (pi: PlotInfo) => pi.copy(seed = r)) |
     (string("vars") *> sps *> regExp).map(r =>
       (pi: PlotInfo) => pi.copy(showVar = str => r.exists(re => re.r.matches(str)))) |
+    (string("height") *> sps *> intP).map(r =>
+      (pi: PlotInfo) => pi.copy(height = r)) |
+    (string("runs") *> sps *> intP).map(r =>
+        (pi: PlotInfo) => pi.copy(runs = r)) |
+    (string("portrait") *> sps *>
+      (varName ~ (sps *> char(',') *> sps *>(varName <* sps)))
+        .repSep(char(';')*>sps)).map(lst =>
+        (pi: PlotInfo) => pi.copy(portrait = lst.toList ::: pi.portrait)) |
     string("verbose").map(r =>
       (pi: PlotInfo) => pi.copy(showAll = true))
 

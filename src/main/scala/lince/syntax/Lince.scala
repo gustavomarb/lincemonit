@@ -10,8 +10,6 @@ import scala.util.Random
 
 object Lince:
 
-  case class Simulation(prog:Program, pi:PlotInfo)
-
   ///// Program ////
 
   enum Program:
@@ -71,15 +69,21 @@ object Lince:
 
   ///// Plot configuration ////
 
+  case class Simulation(prog:Program, pi:PlotInfo):
+    def state = SmallStep.St(prog,Map(),pi.seed+(pi.runs-1), pi.maxTime,pi.maxLoops)
+
   case class PlotInfo( minTime:Double,
                        maxTime:Double,
                        maxLoops: Int,
                        samples: Int,
                        seed: Long,
                        showAll: Boolean,
-                       showVar: String=>Boolean
+                       showVar: String=>Boolean,
+                       height: Int, // height in px
+                       runs: Int, // number of times to repeat the run
+                       portrait: List[(String,String)], // to change the variables in the x and y axis
   )
   object PlotInfo:
-    def default = PlotInfo(0,10,50,20,SmallStep.rand.nextLong(),false,_=>true)
+    def default = PlotInfo(0,10,500,40,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil)
 
 
