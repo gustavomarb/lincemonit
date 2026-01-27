@@ -1,6 +1,7 @@
 package lince.syntax
 
 import lince.backend.SmallStep
+import lince.syntax.Lince.Expr.Var
 
 import scala.util.Random
 
@@ -9,8 +10,6 @@ import scala.util.Random
  */
 
 object Lince:
-
-  case class Simulation(prog:Program, pi:PlotInfo)
 
   ///// Program ////
 
@@ -36,15 +35,29 @@ object Lince:
 
   def getexample: Ltl = Ltl.Negati(Ltl.Variab("x"))
 
-  enum STL: // real-valued predicates and real-valued time
-    case NOT
-    case AND
-    case OR
-    case X // at next point in time
-    case F // at some point in future
-    case G // at all future points
-    case U // x u y -> x is true until y is true and then only y is true
-    case I // if first predicate true implies that second predicate is true
+  enum Stl: // real-valued predicates and real-valued time
+    //case VAR(n:String)
+    case Not(e:Stl)
+    case And(e1: Stl, e2:Stl)
+    case Or(e1: Stl, e2:Stl)
+    case U(e1: Stl, e2: Stl, ti: Inter) // x u y -> x is true until y is true and then only y is true
+    case Cond(e:Lince.Cond)
+    //case X(e:STL) // at next point in time
+    //case F(e:STL) // at some point in future
+    //case G(e:STL) // at all future points
+    //case I(e1: STL, e2:STL) // if first predicate true implies that second predicate is true "->"
+    def implies(e1:Stl, e2:Stl): Stl = Or(Not(e1), e2)
+  
+  //criar exemplos e alterar parser. Depois funções
+  //
+  val ex1: Stl = Stl.Cond(Cond.True)
+  val ex2: Stl = Stl.Not(Stl.Cond(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))))
+  val ex3: Stl = Stl.And(Stl.Cond(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Cond(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))))
+  val ex4: Stl = Stl.U(Stl.Cond(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Cond(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))), Inter(1.3, Some(3.3)))
+
+  //intervalo tempo
+  case class Inter(t1:Double,t2:Option[Double])
+
 
   enum Cond:
     case True
@@ -71,15 +84,20 @@ object Lince:
 
   ///// Plot configuration ////
 
+  case class Simulation(prog:Program, pi:PlotInfo):
+    def state = SmallStep.St(prog,Map(),pi.seed+(pi.runs-1), pi.maxTime,pi.maxLoops)
+
   case class PlotInfo( minTime:Double,
                        maxTime:Double,
                        maxLoops: Int,
                        samples: Int,
                        seed: Long,
                        showAll: Boolean,
-                       showVar: String=>Boolean
+                       showVar: String=>Boolean,
+                       height: Int, // height in px
+                       runs: Int, // number of times to repeat the run
+                       monitor: Option[Stl]
   )
   object PlotInfo:
-    def default = PlotInfo(0,10,50,20,SmallStep.rand.nextLong(),false,_=>true)
-
+    def default = PlotInfo(0,10,50,40,SmallStep.rand.nextLong(),false,_=>true,450,1, None)
 

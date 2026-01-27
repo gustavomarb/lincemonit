@@ -1,6 +1,6 @@
 package lince.backend
 
-import lince.syntax.Lince.{Cond, Expr}
+import lince.syntax.Lince.{Cond, Expr, Stl}
 import lince.syntax.{Lince, Show}
 
 import scala.util.Random
@@ -10,6 +10,8 @@ object Eval:
   //  type Valuation = Map[String,Expr]
   type Valuation = Map[String,Double]
   private type MValuation = scala.collection.Map[String,Double]
+  type Stream = List[(Valuation, Double)]
+  type Check = Map[Stl,Stream]
 
   def apply(e:Expr)(using v:MValuation, rand:Random = new Random): Double = e match
     case Expr.Num(n) => n
@@ -24,6 +26,9 @@ object Eval:
     case Expr.Func("pow", List(e1,e2)) => math.pow(apply(e1),apply(e2))
     case Expr.Func("sqrt", List(e)) => math.sqrt(apply(e))
     case Expr.Func("exp", List(e)) => math.exp(apply(e))
+    case Expr.Func("unif",List()) => rand.nextDouble()
+    case Expr.Func("unif",List(e1,e2)) => rand.between(apply(e1),apply(e2))
+    case Expr.Func("round",List(e1)) => math.round(apply(e1)).toDouble
     case Expr.Func("sin", List(e)) => math.sin(apply(e))
     case Expr.Func("cos", List(e)) => math.cos(apply(e))
     case Expr.Func("tan", List(e)) => math.tan(apply(e))
@@ -32,8 +37,6 @@ object Eval:
     case Expr.Func("tanh", List(e)) => math.tanh(apply(e))
     case Expr.Func("ln", List(e)) => math.log(apply(e))
     case Expr.Func("pi", List()) => math.Pi
-    case Expr.Func("unif",List()) => rand.nextDouble()
-    case Expr.Func("unif",List(e1,e2)) => rand.between(apply(e1),apply(e2))
     case Expr.Func(op, es) =>
       sys.error(s"Cannot evaluate function ${Show(e)}")
 
