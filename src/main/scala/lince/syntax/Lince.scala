@@ -95,6 +95,7 @@ object Lince:
                        maxTime:Double,
                        maxLoops: Int,
                        samples: Int,
+                       rkSamples: Int,
                        seed: Long,
                        showAll: Boolean,
                        showVar: String=>Boolean,
@@ -104,6 +105,7 @@ object Lince:
                        monitor: Stl
   )
   object PlotInfo:
-    def default = PlotInfo(0,10,500,40,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil, Stl.Con(Cond.True))
+    def default = PlotInfo(0,10,500,40,100,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil, Stl.Con(Cond.True))
+
 
 

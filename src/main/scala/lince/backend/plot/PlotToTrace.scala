@@ -16,8 +16,9 @@ object PlotToTrace:
     // res = loadTraces(plot.traces,res)
     // res = loadEndings(plot.endings,res)
     // res = loadBeginnings(plot.beginnings,res)
-    // res.toList.sortBy(_._1)
-    loadTraces(plot.traces).reverse.sortBy(_._1)
+    // res.toList.sortBy(_._1) 
+     loadTraces(plot.traces).reverse.sortBy(_._1)
+  
 
   // private def loadTraces2(traces: Map[String,Traces]): List[(Double,Valuation)] =
   //   for (v,trs) <- traces.toList
@@ -106,4 +107,5 @@ object PlotToTrace:
         res = res :+ ((t, Map(v -> value)))
     res
 */
+
 
