@@ -111,6 +111,7 @@ object CaosConfig extends Configurator[Simulation]:
     "Monitor" -> view(sim => Lince.ex5.toString + "\n" + sim.pi.monitor,Text),
     
 
+
     "Plots"
       -> Custom[Simulation](divName = "sim-plotlys", reload = sim => {
           val plots = Plot.allPlots(sim.state, sim.pi)
