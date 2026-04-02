@@ -5,7 +5,7 @@ import caos.frontend.{Configurator, Documentation}
 import caos.view.*
 import lince.backend.*
 import lince.backend.plot.*
-import lince.syntax.Lince.{Action, PlotInfo, Program, Simulation}
+import lince.syntax.Lince.{Action, PlotInfo, Program, Simulation, ex5}
 import lince.syntax.{Lince, Show}
 import SmallStep.St
 import caos.frontend.widgets.WidgetInfo.Custom
@@ -94,7 +94,8 @@ object CaosConfig extends Configurator[Simulation]:
     "View parsed" -> view(_.toString,Text).moveTo(1),
     "View pretty" -> view[Simulation](s=>Show(s._1),Code("clike")).moveTo(1),
 
-    "Monitor" -> view(x => "abc", Text),
+    "Monitor" -> view(sim => Lince.ex5.toString + "\n" + sim.pi.monitor,Text),
+    
 
     "Plots"
       -> Custom[Simulation](divName = "sim-plotlys", reload = sim => {

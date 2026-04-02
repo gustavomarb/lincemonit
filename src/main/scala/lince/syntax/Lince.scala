@@ -34,15 +34,34 @@ object Lince:
 
   def getexample: Ltl = Ltl.Negati(Ltl.Variab("x"))
 
-  enum STL: // real-valued predicates and real-valued time
-    case NOT
-    case AND
-    case OR
-    case X // at next point in time
-    case F // at some point in future
-    case G // at all future points
-    case U // x u y -> x is true until y is true and then only y is true
-    case I // if first predicate true implies that second predicate is true
+  //intervalo tempo
+  case class Inter(t1: Double, t2: Option[Double])
+  //case class Inter(t1: Expr, t2: Option[Expr])
+
+  enum Stl: // real-valued predicates and real-valued time
+    case Not(e: Stl)
+    case And(e1: Stl, e2: Stl)
+    case Or(e1: Stl, e2: Stl)
+    case U(e1: Stl, e2: Stl, ti: Inter) // x u y -> x is true until y is true and then only y is true
+    case Con(e: Lince.Cond)
+    //case nextp(e:Stl): Stl = ??? -> X
+    //case X(e:STL) // at next point in time
+    //case F(e:STL) // at some point in future
+    //case G(e:STL) // at all future points
+    //case I(e1: STL, e2:STL) // if first predicate true implies that second predicate is true "->"
+  def implies(e1: Stl, e2: Stl): Stl = Stl.Or(Stl.Not(e1), e2)
+  def eventually(e:Stl, ti: Inter): Stl = Stl.U(Stl.Con(Cond.True), e, ti)
+  def globally(e:Stl, ti: Inter): Stl = Stl.Not(eventually(Stl.Not(e), ti))
+
+  //criar exemplos e alterar parser. Depois funções 
+  
+  val ex1: Stl = Stl.Con(Cond.True)
+  val ex2: Stl = Stl.Not(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))))
+  val ex3: Stl = Stl.And(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Con(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))))
+  val ex4: Stl = Stl.U(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Con(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))), Inter(1.3, Some(3.3)))
+  val ex5: Stl = globally(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Inter(1.3, Some(3.33)))
+
+    
 
   enum Cond:
     case True
@@ -82,8 +101,9 @@ object Lince:
                        height: Int, // height in px
                        runs: Int, // number of times to repeat the run
                        portrait: List[(String,String)], // to change the variables in the x and y axis
+                       monitor: Stl
   )
   object PlotInfo:
-    def default = PlotInfo(0,10,500,40,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil)
+    def default = PlotInfo(0,10,500,40,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil, Stl.Con(Cond.True))
 
 

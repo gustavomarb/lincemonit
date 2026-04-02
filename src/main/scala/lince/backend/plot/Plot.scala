@@ -58,6 +58,8 @@ case class Plot(current: Map[String,Trace], traces: Map[String,Traces],
       .mkString("\n")
 
 
+
+
 object Plot:
 
   type Traces = List[Trace]
