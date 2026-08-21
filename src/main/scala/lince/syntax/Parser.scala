@@ -3,7 +3,7 @@ package lince.syntax
 import cats.parse.Numbers.digits
 import cats.parse.Parser.*
 import cats.parse.{LocationMap, Numbers, Parser as P, Parser0 as P0}
-import lince.syntax.Lince.{Cond, Expr, Inter, PlotInfo, Program, Simulation, Stl}
+import lince.syntax.Lince.{Cond, Expr, Inter, PlotInfo, Program, Simulation, Stl, eventually}
 import Program.*
 import caos.frontend.widgets.WidgetInfo.Simulate
 
@@ -266,10 +266,14 @@ object Parser :
       .string
       .map(op => ((e1, e2) => Cond.Comp(op, e1, e2)))
   }
-/*
-  def optemps =
-    (optemp.surroundedBy(sps) ~ inter ~ stl).map(x => x._1._1(x._2, x._1._2))
-*/
+
+  def evenq =
+    (eventl.surroundedBy(sps) ~ inter ~ stl).map(x => x._1._1(x._2, x._1._2))
+
+  def eventl: P[(Stl, Inter) => Stl] = {
+    (string("eventually"))
+      .map(op => ((s, i) => eventually(s, i)))
+  }
   /*def opuntils =
     (stl ~ opuntil.surroundedBy(sps) ~ inter ~ stl).map(x => x._1._1._2(x._1._1._1, x._2, x._1._2))*/
 
@@ -277,80 +281,75 @@ object Parser :
     (string("eventually").as((x: Stl, y: Lince.Inter) => Lince.eventually(x, y)))
     (string("globally").as((x: Stl, y: Lince.Inter) => Lince.globally(x, y)))
   }
-  
-  /*def inter: P[Lince.Inter] = {
-    val d1 = Double //Numbers.jsonNumber.map(_.toDouble)
-    val d2 = Numbers.jsonNumber.map(_.toDouble)
-    (char('[') *> d1 <* char(',') *> d2 <* char(']')).string.map(i => Lince.Inter(d1, d2))
-  }*/
+
   
   def inter: P[Lince.Inter] = {
     val double = Numbers.jsonNumber.map(_.toDouble)
 
-    (P.char('[') *> double ~ (P.char(',') *> double).? <* P.char(']')).map {
+    (P.char('[') *> double ~ (P.char(',').surroundedBy(sps) *> double).? <* P.char(']')).map {
       case (t1, t2) => Lince.Inter(t1, t2)
     }
   }
   
-  /*def opinter = {
-     var t1, t2 = Double
-    (inter ~ t1 ~ t2).map(x => )
-  }*/
-
-  /*def inter: P[(Double, Option[Double]) => Inter] = {
-    (string("[" ++ t1.toString ++ "," ++ t2.toString ++ "]").map(x => Inter(t1, t2)))
-  }*/
-
-  /*def inter: P[Lince.Inter] = {
-    (string("[1,2]").map(x => Inter(1, Some(2))))
-  }*/
-
-  /*def inter: P[(Double, Option[Double]) => Lince.Inter] = {
-    (string("[").as((x: Double, y:Option[Double]) => Inter(x, y)))
-  }*/
-  
   
   //Stl parser
   def stl: P[Stl] = P.recursive((recStl: P[Stl]) => {
-    //def lit: P[Cond] = P.recursive( (recLit:P[Cond]) => )
+
+    def optem: P[(Stl) => Stl] = {
+      ((string("eventually") *> sps *> inter.?)
+        .map(i => (x: Stl) => Lince.eventually(x, i.getOrElse(Inter(0, None))))) |
+      (((string("globally") | string("always")) *> sps *> inter.?)
+        .map(i => (x: Stl) => Lince.globally(x, i.getOrElse(Inter(0, None)))))
+    }
+    
+    def temp: P[Stl] = {
+      (optem ~ recStl.surroundedBy(sps)).map((f,x) => f(x))
+    }
+
     def lit: P[Stl] = P.recursive( (recLit:P[Stl]) =>
       string("true").as(Stl.Con(Cond.True)) |
         string("false").as(Stl.Con(Cond.False)) |
-        (char('!') *> recLit).map(Stl.Not.apply) |
+        ((char('!') | string("not") *> sps) *> recLit).map(Stl.Not.apply) |
+        (string("next ") *> recLit).map(Stl.Next.apply) |
+        temp |
         ineq.backtrack.map(Stl.Con.apply) |
         char('(') *> recStl.surroundedBy(sps) <* char(')'))
-        //(string("eventually").as((x: Stl, y: Lince.Inter) => Lince.eventually(x, y)))
-
-    def not: P[(Stl) => Stl] =
-      (string("!").as((x: Stl) => Stl.Not(x)))
-
+    
     def and: P[(Stl, Stl) => Stl] =
-      (string("&&").as((x: Stl, y: Stl) => Stl.And(x, y)))
+      ((string("&&") | string("and")).as((x: Stl, y: Stl) => Stl.And(x, y)))
 
     def or: P[(Stl, Stl) => Stl] =
-      (string("||").as((x: Stl, y: Stl) => Stl.Or(x, y)))
+      ((string("||") | string("or")).as((x: Stl, y: Stl) => Stl.Or(x, y)))
 
     def implies: P[(Stl, Stl) => Stl] =
-      (string("implies").as((x: Stl, y: Stl) => Lince.implies(x, y)))
+      ((string("implies") | string("->")).as((x: Stl, y: Stl) => Lince.implies(x, y)))
 
-    def opuntil: P[(Stl, Stl, Lince.Inter) => Stl] =
-      string("until").as((x: Stl, y: Stl, z: Lince.Inter) => Lince.Stl.U(x, y, z))
+    def untilOp2: P[(Stl, Stl) => Stl] =
+      (string("until") *> sps *> inter.?)
+        .map(i => (x: Stl, y: Stl) => Stl.U(x, y, i.getOrElse(Inter(0, None))))
+
+    listSep(listSep(listSep(listSep(lit, and), or), implies), untilOp2)
+
+    /*def opuntil: P[(Stl, Stl, Lince.Inter) => Stl] =
+      string("until").as((x: Stl, y: Stl, z: Lince.Inter) => Lince.Stl.U(x, y, z))*/
 
     /*def untilOp: P[Stl] =
       (lit ~ (opuntil.surroundedBy(sps) ~ inter ~ lit)).map {
         case (s1, ((f, i), s2)) => f(s1, s2, i)
       }*/
 
-    def untilOp: P[Stl] =
-      (lit ~ opuntil.surroundedBy(sps) ~ inter ~ lit).map(x => x._1._1._2(x._1._1._1, x._2, x._1._2))
+    /*def untilOp: P[Stl] =
+      (lit ~ opuntil.surroundedBy(sps) ~ inter ~ lit).map(x => x._1._1._2(x._1._1._1, x._2, x._1._2))*/
       
-    def untilOp2: P[(Stl, Stl) => Stl]  =
-      (string("until") *> sps *> inter.?)
-        .map(i => (x: Stl, y: Stl) => Stl.U(x, y, i.getOrElse(Inter(0,None))))
-      
+
+
+    /*def eventually: P[(Stl, Lince.Inter) => Stl] = {
+      (string("eventually") *> sps *> inter.?).as((x: Stl, y: Lince.Inter) => Lince.eventually(x, y))
+    }*/
+
     
     //al base = untilOp | lit
-    listSep(listSep(listSep(listSep(lit, and), or), implies), untilOp2)
+
   })
 
   /*def nextp: P[(Stl) => Stl] =

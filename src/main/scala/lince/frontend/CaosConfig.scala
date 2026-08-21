@@ -4,11 +4,13 @@ import caos.frontend.Configurator.*
 import caos.frontend.{Configurator, Documentation}
 import caos.view.*
 import lince.backend.*
+import lince.backend.CheckStream
 import lince.backend.plot.*
-import lince.syntax.Lince.{Action, PlotInfo, Program, Simulation, ex5}
+import lince.syntax.Lince.{Action, PlotInfo, Program, Simulation, ex4}
 import lince.syntax.{Lince, Show}
 import SmallStep.St
 import caos.frontend.widgets.WidgetInfo.Custom
+import lince.backend
 
 import scala.util.Random
 
@@ -103,12 +105,18 @@ object CaosConfig extends Configurator[Simulation]:
   //     -> "Example with a solution that requires enough precision to be computed correctly. Increase the number of <code>rk-samples</code> (used in the Runge Kutta), e.g., to <code>100</code>, to improve precision.",
   // )
 
-  /** Description of the widgets that appear in the dashboard. */
+  /** Description of the widgets that appear in the dashboard. Lince.ex4.toString + */
   val widgets = List(
     "View parsed" -> view(_.toString,Text).moveTo(1),
     "View pretty" -> view[Simulation](s=>Show(s._1),Code("clike")).moveTo(1),
+    "Monitor" 
+      //-> view(sim => Lince.ex5.toString + "\n" + sim.pi.monitor,Text + "\n" ),
 
-    "Monitor" -> view(sim => Lince.ex5.toString + "\n" + sim.pi.monitor,Text),
+      -> view(sim => {
+          val ps = Plot(sim.state, sim._2)
+          "\n" + sim.pi.monitor + "\n" + CheckStream(PlotToTrace(ps.head), Map("x" -> 0.0), sim.pi.monitor, 0/* , 0 , 0*/)
+      }, Text),
+    
     
 
 

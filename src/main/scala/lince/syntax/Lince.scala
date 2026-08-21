@@ -42,6 +42,7 @@ object Lince:
     case Not(e: Stl)
     case And(e1: Stl, e2: Stl)
     case Or(e1: Stl, e2: Stl)
+    case Next(e: Stl)
     case U(e1: Stl, e2: Stl, ti: Inter) // x u y -> x is true until y is true and then only y is true
     case Con(e: Lince.Cond)
     //case nextp(e:Stl): Stl = ??? -> X
@@ -59,7 +60,7 @@ object Lince:
   val ex2: Stl = Stl.Not(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))))
   val ex3: Stl = Stl.And(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Con(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))))
   val ex4: Stl = Stl.U(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Stl.Con(Cond.Comp("<", Expr.Var("x"), Expr.Num(10))), Inter(1.3, Some(3.3)))
-  val ex5: Stl = globally(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Inter(1.3, Some(3.33)))
+  val ex5: Stl = eventually(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))), Inter(1.3, Some(3.33)))
 
     
 
