@@ -5,11 +5,15 @@ import lince.syntax.{Lince, Show}
 import lince.backend.Eval.Valuation
 
 import scala.util.Random
+import lince.{backend => ArrayStream}
+import lince.{backend => valuation}
 
 object CheckStream:
 
-
+//complexidade linear em "list" a procurar por indice. complexidade constante em array
+//usar index em vez de t e valuation
   type Stream = List[(Double,Valuation)]
+  type ArrayStream = Array[(Double,Valuation)] //performance
   type StlExp = Stl
 
   def streamToArray(stream: Stream): Array[(Double, Valuation)] =
@@ -30,7 +34,282 @@ object CheckStream:
     ver qual a valoração (valuation) no instante "t"
     ver qual o próximo instante depois de "t*/
 
+
+
+  /*
+//Option Double, adicionar intervalo como argumento, devolver valoração aqui
+  def nextTimeAfter(stream: Stream, t: Double): Double = {
+    val nextTime = stream.collectFirst { case (time, _) if time > t => time }.getOrElse(Double.PositiveInfinity)
+    println(s"nextTime = $nextTime")
+    if (nextTime == Double.PositiveInfinity) -1 else nextTime
+  }*/
+
 /*
+//pode haver 2 pontos com o mesmo t, queremos o ultimo, ou percorrer todas as valorações para o mesmo t
+  def findvalAtTime(stream: Stream, t: Double): Valuation = {
+    stream.find(_._1 >= t) match
+      case Some((time, valuation)) => valuation
+      case None => Map.empty
+  }
+
+
+  def findnextval(stream: Stream, t: Double, upbound: Double, valt: Valuation): Option[(Double, Valuation)] = {
+    stream.find(x => x._1 > t && x._1 <= upbound)
+  }*/
+
+  
+/*
+  private def checkUntil(stream: Stream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double): Boolean = {
+    // Compute absolute bounds on first call that stay fixed for all recursive calls
+    val absoluteLowerBound = t + inter.t1
+    val absoluteUpperBound = t + inter.t2.getOrElse(Double.PositiveInfinity)
+    checkUntilHelper(stream, valuation, phi, psi, inter, t, absoluteLowerBound, absoluteUpperBound)
+  }
+
+  private def checkUntilHelper(stream: Stream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double, absoluteLowerBound: Double, absoluteUpperBound: Double): Boolean = {
+    // Use fixed absolute bounds from initial call - don't recompute them
+    val a = absoluteLowerBound
+    val b = absoluteUpperBound
+    val valt = findvalAtTime(stream, t)
+    println(s"=== checkUntil: t=$t, interval=[${inter.t1}, ${inter.t2}] -> absolute=[$a, $b], currentValt=$valt")
+    println(s"    phi=$phi")
+    println(s"    psi=$psi")
+    
+    if (valt.isEmpty || t > b) {
+      println(s"    -> EARLY EXIT: valt.isEmpty=${valt.isEmpty}, t > b=${t > b}")
+      return false
+    }
+    
+    val nexttime = findnextval(stream, t, b, valt).map(_._1).getOrElse(Double.PositiveInfinity)
+    val nextvalt = findnextval(stream, t, b, valt).map(_._2).getOrElse(Map.empty)
+    println(s"    nexttime=$nexttime")
+    
+    if (t < a) {
+      println(s"    -> t < a, skipping to nexttime")
+      val newValt = findvalAtTime(stream, nexttime)
+      checkUntilHelper(stream, newValt, phi, psi, inter, nexttime, absoluteLowerBound, absoluteUpperBound)
+    }
+    else {
+      println(s"    -> checking at t=$t")
+      val psiResult = apply(stream, valt, psi, t)
+      println(s"       psi result: $psiResult")
+      if (psiResult) {
+        println(s"    -> psi is TRUE, returning true")
+        true
+      }
+      else {
+        val phiResult = apply(stream, valt, phi, t)
+        println(s"       phi result: $phiResult")
+        if (!phiResult) {
+          println(s"    -> phi is FALSE, returning false")
+          false
+        }
+        else {
+          if (nexttime == Double.PositiveInfinity) {
+            println(s"    -> no more times, returning false")
+            false
+          }
+          else {
+            println(s"    -> phi is TRUE, continuing to nexttime=$nexttime")
+            val newValt = findvalAtTime(stream, nexttime)
+            checkUntilHelper(stream, newValt, phi, psi, inter, nexttime, absoluteLowerBound, absoluteUpperBound)
+          }
+        }
+      } 
+    }
+  }*/
+
+  
+
+  def findvalAtTime(stream: ArrayStream, t: Double): Valuation = {
+    val index = stream.indexWhere(_._1 >= t)
+    if (index >= 0) stream(index)._2 else Map.empty
+  }
+
+  def findnextval(stream: ArrayStream, t: Double, upbound: Double, valt: Valuation): Option[(Double, Valuation)] = {
+    val startIndex = stream.indexWhere(_._1 > t)
+    if (startIndex < 0) None
+    else {
+      val nextIndex = (startIndex until stream.length).find(index => stream(index)._1 <= upbound)
+      nextIndex.map(stream(_)) //index => stream(index). returns Some((time, valuation)) or None
+    }
+  }
+
+
+  private def checkUntil(stream: ArrayStream, startIndex: Int, phi: Stl, psi: Stl, inter: Inter, t: Double): Boolean = {
+    val absoluteLowerBound = t + inter.t1
+    val absoluteUpperBound = t + inter.t2.getOrElse(Double.PositiveInfinity)
+    val index = if (startIndex == 0) stream.indexWhere(_._1 >= t) else startIndex
+    if (index < 0 || index >= stream.length) false
+    else checkUntilHelper(stream, index, phi, psi, absoluteLowerBound, absoluteUpperBound)
+  }
+
+  private def checkUntilHelper(stream: ArrayStream, index: Int, phi: Stl, psi: Stl, absoluteLowerBound: Double, absoluteUpperBound: Double): Boolean = {
+    if (index >= stream.length) false
+    else {
+      val (t, valuation) = stream(index)
+
+      if (t > absoluteUpperBound) false
+      else if (t < absoluteLowerBound) {
+        checkUntilHelper(stream, index + 1, phi, psi, absoluteLowerBound, absoluteUpperBound)
+      }
+      else if (applyAtIndex(stream, index, psi, t, valuation)) true
+      else if (!applyAtIndex(stream, index, phi, t, valuation)) false
+      else checkUntilHelper(stream, index + 1, phi, psi, absoluteLowerBound, absoluteUpperBound)
+    }
+  }
+
+  private def applyAtIndex(stream: ArrayStream, index: Int, stlexp: StlExp, t: Double, valuation: Valuation): Boolean = {
+    //println(s"analisando $stlexp")
+    stlexp match
+      case Stl.Con(e) =>
+        Eval(e)(using valuation, new Random())
+      case Stl.Not(s1) => !applyAtIndex(stream, index, s1, t, valuation)
+      case Stl.And(s1, s2) => applyAtIndex(stream, index, s1, t, valuation) && applyAtIndex(stream, index, s2, t, valuation)
+      case Stl.Or(s1, s2) => applyAtIndex(stream, index, s1, t, valuation) || applyAtIndex(stream, index, s2, t, valuation)
+      case Stl.Next(s1) =>
+        if index + 1 >= stream.length then false
+        else {
+          val (nextTime, nextValuation) = stream(index + 1)
+          applyAtIndex(stream, index + 1, s1, nextTime, nextValuation)
+        }
+      case Stl.U(s1, s2, inter) => checkUntil(stream, index, s1, s2, inter, t)
+  }
+
+  def apply(stream: ArrayStream, valuation: Valuation, stlexp: StlExp, t: Double): Boolean = {
+    val index = stream.indexWhere(_._1 >= t)
+    if (index < 0) false
+    else applyAtIndex(stream, index, stlexp, t, valuation)
+  }
+
+
+
+
+
+/*
+
+
+
+def findvalAtTime(stream: ArrayStream, t: Double): Valuation = {
+    val index = stream.indexWhere(_._1 >= t)
+    if (index >= 0) stream(index)._2 else Map.empty
+  }
+
+  def findnextval(stream: ArrayStream, t: Double, upbound: Double, valt: Valuation): Option[(Double, Valuation)] = {
+    val startIndex = stream.indexWhere(_._1 > t)
+    if (startIndex < 0) None
+    else {
+      val nextIndex = (startIndex until stream.length).find(index => stream(index)._1 <= upbound)
+      nextIndex.map(stream(_)) //index => stream(index). returns Some((time, valuation)) or None
+    }
+  }
+
+  //usar index em vez de t e valuation
+
+  private def checkUntil(stream: ArrayStream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double): Boolean = {
+    // Compute absolute bounds on first call that stay fixed for all recursive calls
+    val absoluteLowerBound = t + inter.t1
+    val absoluteUpperBound = t + inter.t2.getOrElse(Double.PositiveInfinity)
+    checkUntilHelper(stream, valuation, phi, psi, inter, t, absoluteLowerBound, absoluteUpperBound)
+  }
+
+  private def checkUntilHelper(stream: ArrayStream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double, absoluteLowerBound: Double, absoluteUpperBound: Double): Boolean = {
+    // Use fixed absolute bounds from initial call
+    val a = absoluteLowerBound
+    val b = absoluteUpperBound
+    val valt = findvalAtTime(stream, t)
+    //println(s"=== checkUntil: t=$t, interval=[${inter.t1}, ${inter.t2}] -> absolute=[$a, $b], currentValt=$valt")
+    //println(s"    phi=$phi")
+    //println(s"    psi=$psi")
+
+    if (valt.isEmpty || t > b) return false
+
+    val nexttime = findnextval(stream, t, b, valt).map(_._1).getOrElse(Double.PositiveInfinity)
+    //println(s"    nexttime=$nexttime")
+
+    //skip to next time if t<a, because we are not in the interval yet
+    if (t < a) {
+      val newValt = findvalAtTime(stream, nexttime)
+      checkUntilHelper(stream, newValt, phi, psi, inter, nexttime, absoluteLowerBound, absoluteUpperBound)
+    }
+    //if psi true return true, if phi false return false, if end of stream return false,else continue to next time
+    else {
+      val psiResult = apply(stream, valt, psi, t)
+      if (psiResult) true
+      
+      else {
+        val phiResult = apply(stream, valt, phi, t)
+        if (!phiResult) false
+        
+        else if (nexttime == Double.PositiveInfinity) false
+
+        else {
+          val newValt = findvalAtTime(stream, nexttime)
+          checkUntilHelper(stream, newValt, phi, psi, inter, nexttime, absoluteLowerBound, absoluteUpperBound)
+        }
+      }
+    }
+  }
+
+  def apply(stream: ArrayStream, valuation: Valuation, stlexp: StlExp, t: Double): Boolean = {
+    //println(s"analisando $stlexp")
+    stlexp match
+      case Stl.Con(e) =>
+        if (stream.isEmpty) false
+        else Eval(e)(using valuation, new Random())
+      case Stl.Not(s1) => !apply(stream, valuation, s1, t)
+      case Stl.And(s1, s2) => apply(stream, valuation, s1, t) && apply(stream, valuation, s2, t)
+      case Stl.Or(s1, s2) => apply(stream, valuation, s1, t) || apply(stream, valuation, s2, t)
+      case Stl.Next(s1) => if stream.isEmpty then false else apply(stream.drop(1), valuation, s1, t)
+      case Stl.U(s1, s2, inter) => checkUntil(stream, valuation, s1, s2, inter, t)
+  }
+
+
+
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+/*
+  def apply(stream: Stream, valuation: Valuation, stlexp: StlExp, t: Double): Boolean = { 
+    println(s"analisando $stlexp")
+    stlexp match 
+      case Stl.Con(e) => 
+        if (stream.isEmpty) false
+        else Eval(e)(using valuation, new Random())
+      case Stl.Not(s1) => !apply(stream, valuation, s1, t)
+      case Stl.And(s1, s2) => apply(stream, valuation, s1, t) && apply(stream, valuation, s2, t)
+      case Stl.Or(s1, s2) => apply(stream, valuation, s1, t) || apply(stream, valuation, s2, t)
+      case Stl.Next(s1) => if stream.isEmpty then false else apply(stream.tail, valuation, s1, t)
+      case Stl.U(s1, s2, inter) => checkUntil(stream, valuation, s1, s2, inter, t)
+  }
+*/
+  
+
+ /*def apply(stream: Stream, stlexp: StlExp, t: Double): Boolean = { 
+    println(s"analisando $stlexp")
+    stlexp match 
+      case Stl.Con(e) => 
+        if (stream.isEmpty) false
+        else Eval(e)(using stream.head._2, new Random())
+      case Stl.Not(s1) => !apply(stream, s1, t)
+      case Stl.And(s1, s2) => apply(stream, s1, t) && apply(stream, s2, t)
+      case Stl.Or(s1, s2) => apply(stream, s1, t) || apply(stream, s2, t)
+      case Stl.Next(s1) => if stream.isEmpty then false else apply(stream.tail, s1, t)
+      case Stl.U(s1, s2, inter) => checkUntil(stream, s1, s2, inter, t)
+  }*/
+
+
+  /*
   private def checkUntil(stream: Stream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double, bound: Double, firstcheck: Double): Boolean = {
     val a = inter.t1
     val b = inter.t2.getOrElse(Double.PositiveInfinity)
@@ -57,27 +336,8 @@ object CheckStream:
       } 
     }
   }
-*/
-
-  /*
-//Option Double, adicionar intervalo como argumento, devolver valoração aqui
-  def nextTimeAfter(stream: Stream, t: Double): Double = {
-    val nextTime = stream.collectFirst { case (time, _) if time > t => time }.getOrElse(Double.PositiveInfinity)
-    println(s"nextTime = $nextTime")
-    if (nextTime == Double.PositiveInfinity) -1 else nextTime
-  }*/
-
-//pode haver 2 pontos com o mesmo t, queremos o ultimo, ou percorrer todas as valorações para o mesmo t
-  def findvalAtTime(stream: Stream, t: Double): Valuation = {
-    stream.find(_._1 >= t) match
-      case Some((time, valuation)) => valuation
-      case None => Map.empty
-  }
 
 
-  def findnextval(stream: Stream, t: Double, upbound: Double, valt: Valuation): Option[(Double, Valuation)] = {
-    stream.find(x => x._1 >= t && x._1 <= upbound && x._2 != valt)
-  }
 
   private def checkUntil(stream: Stream, valuation: Valuation, phi: Stl, psi: Stl, inter: Inter, t: Double): Boolean = {
     val a = inter.t1
@@ -93,17 +353,24 @@ object CheckStream:
     if (valt.isEmpty || t > b) return false
     val nexttime = findnextval(stream, t, b, valt).map(_._1).getOrElse(Double.PositiveInfinity)
     val nextvalt = findnextval(stream, t, b, valt).map(_._2).getOrElse(Map.empty)
-    if (t < a) checkUntil(stream, valt, phi, psi, inter, nexttime)
+    if (t < a) {
+      val newValt = findvalAtTime(stream, nexttime)
+      checkUntil(stream, newValt, phi, psi, inter, nexttime)
+    }
     else {
       if (apply(stream, valt, psi, t)) == true then true
       else if (apply(stream, valt, phi, t)) == false then false
       else {
         if (nexttime == Double.PositiveInfinity) return false
-        else checkUntil(stream, valt, phi, psi, inter, nexttime)
+        else {
+          val newValt = findvalAtTime(stream, nexttime)
+          checkUntil(stream, newValt, phi, psi, inter, nexttime)
+        }
       } 
     }
   }
 
+*/
  /* 
 def apply(stream: Stream, valuation: Valuation, stlexp: StlExp, t: Double, bound: Double, firstcheck: Double): Boolean = { 
     println(s"analisando $stlexp")
@@ -138,33 +405,6 @@ def apply(stream: Stream, valuation: Valuation, stlexp: StlExp, t: Double, bound
     }
   }*/
 
-
-
-  def apply(stream: Stream, valuation: Valuation, stlexp: StlExp, t: Double): Boolean = { 
-    println(s"analisando $stlexp")
-    stlexp match 
-      case Stl.Con(e) => 
-        if (stream.isEmpty) false
-        else Eval(e)(using valuation, new Random())
-      case Stl.Not(s1) => !apply(stream, valuation, s1, t)
-      case Stl.And(s1, s2) => apply(stream, valuation, s1, t) && apply(stream, valuation, s2, t)
-      case Stl.Or(s1, s2) => apply(stream, valuation, s1, t) || apply(stream, valuation, s2, t)
-      case Stl.Next(s1) => if stream.isEmpty then false else apply(stream.tail, valuation, s1, t)
-      case Stl.U(s1, s2, inter) => checkUntil(stream, valuation, s1, s2, inter, t)
-  }
-
- /*def apply(stream: Stream, stlexp: StlExp, t: Double): Boolean = { 
-    println(s"analisando $stlexp")
-    stlexp match 
-      case Stl.Con(e) => 
-        if (stream.isEmpty) false
-        else Eval(e)(using stream.head._2, new Random())
-      case Stl.Not(s1) => !apply(stream, s1, t)
-      case Stl.And(s1, s2) => apply(stream, s1, t) && apply(stream, s2, t)
-      case Stl.Or(s1, s2) => apply(stream, s1, t) || apply(stream, s2, t)
-      case Stl.Next(s1) => if stream.isEmpty then false else apply(stream.tail, s1, t)
-      case Stl.U(s1, s2, inter) => checkUntil(stream, s1, s2, inter, t)
-  }*/
 
 /*
   private def checkUntil(stream: Stream, phi: Stl, psi: Stl, inter: Inter, t: Double): Boolean = {

@@ -32,6 +32,20 @@ class TestCheckStream extends munit.FunSuite {
     assert(!obtained)
   }
 
+  test("until evaluates valuations with the same timestamp separately") {
+    val stream = List(
+      (0.0, Map("x" -> 0.0)),
+      (0.5, Map("x" -> 0.0)),
+      (0.5, Map("x" -> 1.0))
+    )
+    val phi = Stl.Con(Cond.Comp(">=", Expr.Var("x"), Expr.Num(0)))
+    val psi = Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(0)))
+
+    val obtained = CheckStream(stream, Stl.U(phi, psi, Inter(0.0, Some(0.5))), 0.0)
+
+    assert(obtained)
+  }
+
   test("globally eventually uses nested time bounds correctly") {
     val stream = List(
       (0.0, Map("x" -> 0.0)),

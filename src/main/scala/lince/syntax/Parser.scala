@@ -267,6 +267,7 @@ object Parser :
       .map(op => ((e1, e2) => Cond.Comp(op, e1, e2)))
   }
 
+/*
   def evenq =
     (eventl.surroundedBy(sps) ~ inter ~ stl).map(x => x._1._1(x._2, x._1._2))
 
@@ -281,7 +282,7 @@ object Parser :
     (string("eventually").as((x: Stl, y: Lince.Inter) => Lince.eventually(x, y)))
     (string("globally").as((x: Stl, y: Lince.Inter) => Lince.globally(x, y)))
   }
-
+*/
   
   def inter: P[Lince.Inter] = {
     val double = Numbers.jsonNumber.map(_.toDouble)
@@ -329,26 +330,6 @@ object Parser :
         .map(i => (x: Stl, y: Stl) => Stl.U(x, y, i.getOrElse(Inter(0, None))))
 
     listSep(listSep(listSep(listSep(lit, and), or), implies), untilOp2)
-
-    /*def opuntil: P[(Stl, Stl, Lince.Inter) => Stl] =
-      string("until").as((x: Stl, y: Stl, z: Lince.Inter) => Lince.Stl.U(x, y, z))*/
-
-    /*def untilOp: P[Stl] =
-      (lit ~ (opuntil.surroundedBy(sps) ~ inter ~ lit)).map {
-        case (s1, ((f, i), s2)) => f(s1, s2, i)
-      }*/
-
-    /*def untilOp: P[Stl] =
-      (lit ~ opuntil.surroundedBy(sps) ~ inter ~ lit).map(x => x._1._1._2(x._1._1._1, x._2, x._1._2))*/
-      
-
-
-    /*def eventually: P[(Stl, Lince.Inter) => Stl] = {
-      (string("eventually") *> sps *> inter.?).as((x: Stl, y: Lince.Inter) => Lince.eventually(x, y))
-    }*/
-
-    
-    //al base = untilOp | lit
 
   })
 

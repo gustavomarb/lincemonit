@@ -114,7 +114,8 @@ object CaosConfig extends Configurator[Simulation]:
 
       -> view(sim => {
           val ps = Plot(sim.state, sim._2)
-          "\n" + sim.pi.monitor + "\n" + CheckStream(PlotToTrace(ps.head), Map("x" -> 0.0), sim.pi.monitor, 0/* , 0 , 0*/)
+          val stream = CheckStream.streamToArray(PlotToTrace(ps.head))
+          "Check: " + sim.pi.monitor + "\n" + "Result: " + CheckStream(stream, Map("x" -> 0.0), sim.pi.monitor, 0/* , 0 , 0*/)
       }, Text),
     
     

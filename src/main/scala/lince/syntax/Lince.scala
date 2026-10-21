@@ -34,9 +34,8 @@ object Lince:
 
   def getexample: Ltl = Ltl.Negati(Ltl.Variab("x"))
 
-  //intervalo tempo
+  //time interval
   case class Inter(t1: Double, t2: Option[Double])
-  //case class Inter(t1: Expr, t2: Option[Expr])
 
   enum Stl: // real-valued predicates and real-valued time
     case Not(e: Stl)
@@ -45,16 +44,12 @@ object Lince:
     case Next(e: Stl)
     case U(e1: Stl, e2: Stl, ti: Inter) // x u y -> x is true until y is true and then only y is true
     case Con(e: Lince.Cond)
-    //case nextp(e:Stl): Stl = ??? -> X
-    //case X(e:STL) // at next point in time
-    //case F(e:STL) // at some point in future
-    //case G(e:STL) // at all future points
-    //case I(e1: STL, e2:STL) // if first predicate true implies that second predicate is true "->"
-  def implies(e1: Stl, e2: Stl): Stl = Stl.Or(Stl.Not(e1), e2)
+    
+  def implies(e1: Stl, e2: Stl): Stl = Stl.Or(Stl.Not(e1), e2) // if first predicate true implies that second predicate is true "->"
   def eventually(e:Stl, ti: Inter): Stl = Stl.U(Stl.Con(Cond.True), e, ti)
   def globally(e:Stl, ti: Inter): Stl = Stl.Not(eventually(Stl.Not(e), ti))
 
-  //criar exemplos e alterar parser. Depois funções 
+  //examples
   
   val ex1: Stl = Stl.Con(Cond.True)
   val ex2: Stl = Stl.Not(Stl.Con(Cond.Comp(">", Expr.Var("x"), Expr.Num(5))))
