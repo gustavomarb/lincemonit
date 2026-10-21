@@ -1,6 +1,7 @@
 package lince.syntax
 
 import lince.backend.SmallStep
+import lince.syntax.Lince.Expr.Var
 
 import scala.util.Random
 
@@ -33,6 +34,7 @@ object Lince:
     case U(e1:Ltl, e2:Ltl) // x u y -> x is true until y is true and then only y is true
 
   def getexample: Ltl = Ltl.Negati(Ltl.Variab("x"))
+
 
   //time interval
   case class Inter(t1: Double, t2: Option[Double])
@@ -102,6 +104,7 @@ object Lince:
   )
   object PlotInfo:
     def default = PlotInfo(0,10,500,40,100,SmallStep.rand.nextLong(),false,_=>true,450,1,Nil, Stl.Con(Cond.True))
+
 
 
 

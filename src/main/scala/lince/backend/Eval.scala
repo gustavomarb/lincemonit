@@ -1,6 +1,6 @@
 package lince.backend
 
-import lince.syntax.Lince.{Cond, Expr}
+import lince.syntax.Lince.{Cond, Expr, Stl}
 import lince.syntax.{Lince, Show}
 
 import scala.util.Random
@@ -10,6 +10,8 @@ object Eval:
   //  type Valuation = Map[String,Expr]
   type Valuation = Map[String,Double]
   private type MValuation = scala.collection.Map[String,Double]
+  type Stream = List[(Valuation, Double)]
+  type Check = Map[Stl,Stream]
 
   def apply(e:Expr)(using v:MValuation, rand:Random = new Random): Double = e match
     case Expr.Num(n) => n

@@ -32,6 +32,15 @@ object Show:
   def applyP(e: Expr): String = e match
     case Expr.Func(_,es) if es.size>1 => s"(${apply(e)})"
     case _ => apply(e)
+    
+  def apply(stl: Stl): String = stl match {
+    case Stl.Not(e) => ???
+    case Stl.And(e1, e2) => ???
+    case Stl.Or(e1, e2) => ???
+    case Stl.U(e1, e2, ti) => ???
+    case Stl.Next(e) => ???
+    case Stl.Con(e) => apply(e)
+  }
 
   def apply(c: Cond): String = c match {
     case Cond.True => "true"

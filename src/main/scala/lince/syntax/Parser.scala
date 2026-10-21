@@ -2,8 +2,10 @@ package lince.syntax
 
 import cats.parse.Numbers.digits
 import cats.parse.Parser.*
+
 import cats.parse.{LocationMap, Numbers, Parser as P, Parser0 as P0}
 import lince.syntax.Lince.{Cond, Expr, Inter, PlotInfo, Program, Simulation, Stl, eventually}
+
 import Program.*
 import caos.frontend.widgets.WidgetInfo.Simulate
 
@@ -359,6 +361,13 @@ object Parser :
     (char('-').rep *> sps *> (plotMod<*sps).rep).map(lst =>
       lst.foldLeft(PlotInfo.default)((p,f) => f(p))
     )
+  /*  
+  def ltlParser: P[Ltl] = {
+    (string("ltl:") *> expr.map(???) )
+  }*/
+  
+  //def stlparser???
+
 
   def plotMod: P[PlotInfo => PlotInfo] =
     (string("monitor") *> sps *> stl).map(r =>
@@ -389,6 +398,7 @@ object Parser :
         (pi: PlotInfo) => pi.copy(portrait = lst.toList ::: pi.portrait)) |
     string("verbose").map(r =>
       (pi: PlotInfo) => pi.copy(showAll = true))
+    //(string("monitor") *> sps *> regExp)
 
   //// Auxiliary functions
 

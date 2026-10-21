@@ -6,7 +6,9 @@ import caos.view.*
 import lince.backend.*
 import lince.backend.CheckStream
 import lince.backend.plot.*
+
 import lince.syntax.Lince.{Action, PlotInfo, Program, Simulation, ex4}
+
 import lince.syntax.{Lince, Show}
 import SmallStep.St
 import caos.frontend.widgets.WidgetInfo.Custom
